@@ -401,6 +401,7 @@ let c = [];
 console.log(c.constructor === Array) // true
 ```
 
+
 > **注意：constructor 是会被改变的。所以不推荐这样判断**
 
 ```js
