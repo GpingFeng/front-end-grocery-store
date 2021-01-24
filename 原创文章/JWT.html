@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>JWT &#x7B80;&#x4ECB;</title>
+        <style>
+</style>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" integrity="sha384-yFRtMMDnQtDRO8rLpMIKrtPCD5jdktao2TV19YiZYWMDkUR5GQZR/NOVTdquEx1j" crossorigin="anonymous">
+<link href="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        
+        <script src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
+        
+    </head>
+    <body class="vscode-body vscode-light">
+        <ul>
+<li><a href="#jwt-%E7%AE%80%E4%BB%8B">JWT 简介</a>
+<ul>
+<li><a href="#%E4%BB%80%E4%B9%88%E6%98%AF-jwt">什么是 JWT</a></li>
+<li><a href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-jwt">为什么需要 JWT</a></li>
+<li><a href="#jwt-%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84">JWT 的数据结构</a></li>
+<li><a href="#jwt-%E7%9A%84%E7%89%B9%E7%82%B9">JWT 的特点</a></li>
+</ul>
+</li>
+<li><a href="#node-%E7%AE%80%E5%8D%95demo-koa-jwt-%E7%9A%84%E5%AE%9E%E7%8E%B0">Node 简单demo—— Koa JWT 的实现</a>
+<ul>
+<li><a href="#%E7%94%9F%E6%88%90-token">生成 Token</a></li>
+<li><a href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%8E%B7%E5%8F%96-token">客户端获取 token</a></li>
+<li><a href="#%E6%A0%A1%E9%AA%8C-token">校验 token</a></li>
+<li><a href="#%E6%BC%94%E7%A4%BA">演示</a></li>
+</ul>
+</li>
+<li><a href="#%E6%80%BB%E7%BB%93">总结</a></li>
+<li><a href="#%E5%8F%82%E8%80%83">参考</a></li>
+</ul>
+<h2 id="jwt-简介">JWT 简介</h2>
+<blockquote>
+<p>本部分参考了阮一峰老师的文章——<a href="https://www.ruanyifeng.com/blog/2018/07/json_web_token-tutorial.html">JSON Web Token 入门教程</a></p>
+</blockquote>
+<h3 id="什么是-jwt">什么是 JWT</h3>
+<p>全称 <code>JSON Web Token</code> 是目前最流行的跨域认证解决方案。基本的实现是服务端认证后，生成一个 <code>JSON</code> 对象，发回给用户。用户与服务端通信的时候，都要发回这个 <code>JSON</code> 对象。</p>
+<p>该 <code>JSON</code> 类似如下：</p>
+<pre><code class="language-json"><div>{
+  <span class="hljs-attr">&quot;姓名&quot;</span>: <span class="hljs-string">&quot;张三&quot;</span>,
+  <span class="hljs-attr">&quot;角色&quot;</span>: <span class="hljs-string">&quot;管理员&quot;</span>,
+  <span class="hljs-attr">&quot;到期时间&quot;</span>: <span class="hljs-string">&quot;2018年7月1日0点0分&quot;</span>
+}
+</div></code></pre>
+<h3 id="为什么需要-jwt">为什么需要 JWT</h3>
+<p>先看下一般的认证流程，基于 <code>session_id</code> 和 <code>Cookie</code> 的模式</p>
+<blockquote>
+<p>1、用户向服务器发送用户名和密码。
+2、服务器验证通过后，在当前对话（session）里面保存相关数据，比如用户角色、登录时间等等。
+3、服务器向用户返回一个 session_id，写入用户的 Cookie。
+4、用户随后的每一次请求，都会通过 Cookie，将 session_id 传回服务器。
+5、服务器收到 session_id，找到前期保存的数据，由此得知用户的身份。</p>
+</blockquote>
+<p>但是这里有一个大的问题，<strong>假如是服务器集群，则要求 session 数据共享，每台服务器都能够读取 session</strong></p>
+<p>而 <code>JWT</code> 是将数据返回给前端的，也就是服务器是无状态的，所以更加容易拓展。</p>
+<h3 id="jwt-的数据结构">JWT 的数据结构</h3>
+<p><code>JWT</code> 的三个部分依次如下:</p>
+<ul>
+<li>Header（头部），类似如下</li>
+</ul>
+<pre><code class="language-json"><div>{
+  <span class="hljs-attr">&quot;alg&quot;</span>: <span class="hljs-string">&quot;HS256&quot;</span>,
+  <span class="hljs-attr">&quot;typ&quot;</span>: <span class="hljs-string">&quot;JWT&quot;</span>
+}
+</div></code></pre>
+<p><code>alg</code> 属性表示签名的算法（<code>algorithm</code>），默认是 <code>HMAC SHA256</code>（写成 <code>HS256</code>）。<code>typ</code> 属性表示这个令牌（token）的类型（type），JWT 令牌统一写为 <code>JWT</code>。</p>
+<ul>
+<li>Payload（负载）。也是一个 JSON，用来存放实际需要传递的数据。JWT 规定了7个官方字段。也可以自定义私有字段。<strong>注意，JWT 默认是不加密的，任何人都可以读到，所以不要把秘密信息放在这个部分。</strong></li>
+</ul>
+<blockquote>
+<p>iss (issuer)：签发人
+exp (expiration time)：过期时间
+sub (subject)：主题
+aud (audience)：受众
+nbf (Not Before)：生效时间
+iat (Issued At)：签发时间
+jti (JWT ID)：编号</p>
+</blockquote>
+<ul>
+<li>Signature（签名）。Signature 部分是对前两部分的签名，防止数据篡改。首先，需要指定一个密钥（<code>secret</code>）。这个密钥只有服务器才知道，不能泄露给用户。然后，使用 <code>Header</code> 里面指定的签名算法（默认是 <code>HMAC SHA256</code>），按照下面的公式产生签名。</li>
+</ul>
+<pre><code><code><div>HMACSHA256(
+  base64UrlEncode(header) + &quot;.&quot; +
+  base64UrlEncode(payload),
+  secret)
+</div></code></code></pre>
+<p>算出签名以后，把 <code>Header</code>、<code>Payload</code>、<code>Signature</code> 三个部分拼成一个字符串，每个部分之间用&quot;点&quot;（.）分隔，就可以返回给用户。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/1784460-a3be07be9b718511.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt=""></p>
+<h3 id="jwt-的特点">JWT 的特点</h3>
+<p>（1）<code>JWT</code> 默认是不加密，但也是可以加密的。生成原始 <code>Token</code> 以后，可以用密钥再加密一次。</p>
+<p>（2）<code>JWT</code> 不加密的情况下，不能将秘密数据写入 <code>JWT</code>。</p>
+<p>（3）<code>JWT</code> 不仅可以用于认证，也可以用于交换信息。有效使用 <code>JWT</code>，可以降低服务器查询数据库的次数。</p>
+<p>（4）<code>JWT</code> 的最大缺点是，由于服务器不保存 session 状态，因此无法在使用过程中废止某个 token，或者更改 token 的权限。也就是说，一旦 <code>JWT</code> 签发了，在到期之前就会始终有效，除非服务器部署额外的逻辑。</p>
+<p>（5）<code>JWT</code> 本身包含了认证信息，一旦泄露，任何人都可以获得该令牌的所有权限。为了减少盗用，<code>JWT</code> 的有效期应该设置得比较短。对于一些比较重要的权限，使用时应该再次对用户进行认证。</p>
+<p>（6）为了减少盗用，<code>JWT</code> 不应该使用 <code>HTTP</code> 协议明码传输，要使用 <code>HTTPS</code> 协议传输。</p>
+<h2 id="node-简单demo-koa-jwt-的实现">Node 简单demo—— Koa JWT 的实现</h2>
+<p>说完理论知识，我们来看下 Node 如何实现 <code>JWT</code>。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/1784460-5ed8ba72c6e616d0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt=""></p>
+<p>首先，用户登录后返回 <code>token</code> 给到客户端，前端在下次请求中把 <code>token</code> 带给服务器，服务器验证有效后，返回数据。无效的话，返回 <code>401</code></p>
+<p>主要技术：</p>
+<ul>
+<li><a href="https://www.npmjs.com/package/jsonwebtoken">jsonwebtoken</a>。可以生成 <code>token</code></li>
+<li><a href="https://www.npmjs.com/package/koa-jwt">koa-jwt 中间件</a> 对 <code>jsonwebtoken</code> 进一步的封装，主要用来校验 <code>Token</code></li>
+</ul>
+<h3 id="生成-token">生成 Token</h3>
+<p>为了演示方便，我这里直接使用 <code>userList</code>，存储用户的信息，真实应该是存放在数据库中的。</p>
+<pre><code class="language-js"><div><span class="hljs-keyword">const</span> crypto = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;crypto&quot;</span>),
+  jwt = <span class="hljs-built_in">require</span>(<span class="hljs-string">&quot;jsonwebtoken&quot;</span>);
+<span class="hljs-comment">// <span class="hljs-doctag">TODO:</span>使用数据库</span>
+<span class="hljs-comment">// 这里应该是用数据库存储，这里只是演示用</span>
+<span class="hljs-keyword">let</span> userList = [];
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserController</span> </span>{
+  <span class="hljs-comment">// 用户登录</span>
+  <span class="hljs-keyword">static</span> <span class="hljs-keyword">async</span> login(ctx) {
+    <span class="hljs-keyword">const</span> data = ctx.request.body;
+    <span class="hljs-keyword">if</span> (!data.name || !data.password) {
+      <span class="hljs-keyword">return</span> ctx.body = {
+        <span class="hljs-attr">code</span>: <span class="hljs-string">&quot;000002&quot;</span>, 
+        <span class="hljs-attr">message</span>: <span class="hljs-string">&quot;参数不合法&quot;</span>
+      }
+    }
+    <span class="hljs-keyword">const</span> result = userList.find(<span class="hljs-function"><span class="hljs-params">item</span> =&gt;</span> item.name === data.name &amp;&amp; item.password === crypto.createHash(<span class="hljs-string">&#x27;md5&#x27;</span>).update(data.password).digest(<span class="hljs-string">&#x27;hex&#x27;</span>))
+    <span class="hljs-keyword">if</span> (result) {
+      <span class="hljs-keyword">const</span> token = jwt.sign(
+        {
+          <span class="hljs-attr">name</span>: result.name
+        },
+        <span class="hljs-string">&quot;Gopal_token&quot;</span>, <span class="hljs-comment">// secret</span>
+        { <span class="hljs-attr">expiresIn</span>: <span class="hljs-number">60</span> * <span class="hljs-number">60</span> } <span class="hljs-comment">// 60 * 60 s</span>
+      );
+      <span class="hljs-keyword">return</span> ctx.body = {
+        <span class="hljs-attr">code</span>: <span class="hljs-string">&quot;0&quot;</span>,
+        <span class="hljs-attr">message</span>: <span class="hljs-string">&quot;登录成功&quot;</span>,
+        <span class="hljs-attr">data</span>: {
+          token
+        }
+      };
+    } <span class="hljs-keyword">else</span> {
+      <span class="hljs-keyword">return</span> ctx.body = {
+        <span class="hljs-attr">code</span>: <span class="hljs-string">&quot;000002&quot;</span>,
+        <span class="hljs-attr">message</span>: <span class="hljs-string">&quot;用户名或密码错误&quot;</span>
+      };
+    }
+  }
+}
+
+<span class="hljs-built_in">module</span>.exports = UserController;
+</div></code></pre>
+<p>通过 <code>jsonwebtoken</code> 的 <code>sign</code> 方法生成一个 <code>token</code>。第一个参数指的是 <code>Payload</code>（负载），用于编码后存储在 <code>token</code> 中的数据，也是校验 <code>token</code> 后可以拿到的数据。第二个是秘钥，服务端特有，注意校验的时候要相同才能解码。第三个参数是 <code>option</code></p>
+<h3 id="客户端获取-token">客户端获取 token</h3>
+<p>前端登录获取到 <code>token</code> 后可以存储到 <code>cookie</code> 中也可以存放在 <code>localStorage</code> 中。</p>
+<pre><code class="language-js"><div>login() {
+  <span class="hljs-built_in">this</span>.$axios
+    .post(<span class="hljs-string">&quot;/api/login&quot;</span>, {
+      ...this.ruleForm,
+    })
+    .then(<span class="hljs-function"><span class="hljs-params">res</span> =&gt;</span> {
+      <span class="hljs-keyword">if</span> (res.code === <span class="hljs-string">&quot;0&quot;</span>) {
+        <span class="hljs-built_in">this</span>.$message.success(<span class="hljs-string">&#x27;登录成功&#x27;</span>);
+        <span class="hljs-built_in">localStorage</span>.setItem(<span class="hljs-string">&quot;token&quot;</span>, res.data.token);
+        <span class="hljs-built_in">this</span>.$router.push(<span class="hljs-string">&quot;/&quot;</span>);
+      } <span class="hljs-keyword">else</span> {
+        <span class="hljs-built_in">this</span>.$message(res.message);
+      }
+    });
+}
+</div></code></pre>
+<p>封装 axios 的拦截器，每次请求的时候把 token 带在请求头发送给服务器进行验证。</p>
+<pre><code class="language-js"><div><span class="hljs-comment">// axios 请求拦截器处理请求数据</span>
+axios.interceptors.request.use(<span class="hljs-function"><span class="hljs-params">config</span> =&gt;</span> {
+  <span class="hljs-keyword">const</span> token = <span class="hljs-built_in">localStorage</span>.getItem(<span class="hljs-string">&#x27;token&#x27;</span>);
+  config.headers.common[<span class="hljs-string">&#x27;Authorization&#x27;</span>] = <span class="hljs-string">&#x27;Bearer &#x27;</span> + token; <span class="hljs-comment">// 留意这里的 Authorization</span>
+  <span class="hljs-keyword">return</span> config;
+})
+</div></code></pre>
+<h3 id="校验-token">校验 token</h3>
+<p>使用 koa-jwt 中间件进行验证，注意几点</p>
+<ul>
+<li>secret 必须和 sign 时候保持一致</li>
+<li>可以通过 <code>unless</code> 配置接口白名单，也就是哪些 URL 可以不用经过校验，想登陆/注册都可以不用校验。</li>
+<li>校验的中间件需要放在需要校验的路由前面，要不然无法生效</li>
+</ul>
+<pre><code class="language-js"><div><span class="hljs-comment">// 错误处理</span>
+app.use(<span class="hljs-function">(<span class="hljs-params">ctx, next</span>) =&gt;</span> {
+  <span class="hljs-keyword">return</span> next().catch(<span class="hljs-function">(<span class="hljs-params">err</span>) =&gt;</span> {
+      <span class="hljs-keyword">if</span>(err.status === <span class="hljs-number">401</span>){
+          ctx.status = <span class="hljs-number">401</span>;
+        ctx.body = <span class="hljs-string">&#x27;Protected resource, use Authorization header to get access\n&#x27;</span>;
+      }<span class="hljs-keyword">else</span>{
+          <span class="hljs-keyword">throw</span> err;
+      }
+  })
+})
+
+<span class="hljs-comment">// 注意：放在路由前面</span>
+app.use(koajwt({
+  <span class="hljs-attr">secret</span>: <span class="hljs-string">&#x27;Gopal_token&#x27;</span>
+}).unless({ <span class="hljs-comment">// 配置白名单</span>
+  <span class="hljs-attr">path</span>: [<span class="hljs-regexp">/\/api\/register/</span>, <span class="hljs-regexp">/\/api\/login/</span>]
+}))
+
+<span class="hljs-comment">// routes</span>
+app.use(index.routes(), index.allowedMethods())
+app.use(users.routes(), users.allowedMethods())
+</div></code></pre>
+<h3 id="演示">演示</h3>
+<ul>
+<li>先注册，后登录，不然会提示用户名或者密码错误</li>
+</ul>
+<p><img src="https://upload-images.jianshu.io/upload_images/1784460-eefcb53675aa986e.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt=""></p>
+<ul>
+<li>登录后带上 <code>Authorization</code>，可以正常访问</li>
+</ul>
+<p><img src="https://upload-images.jianshu.io/upload_images/1784460-c5eca08f08a32605.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt=""></p>
+<ul>
+<li>如果直接访问，则会 <code>401</code></li>
+</ul>
+<p><img src="https://upload-images.jianshu.io/upload_images/1784460-8acdffa2d33bc46d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt=""></p>
+<h2 id="总结">总结</h2>
+<p>总结了关于 JWT 鉴权相关的知识，并提供了一个 <code>koa2</code> 实现的 <code>demo</code>，希望对大家有所帮助。</p>
+<p>本文 <code>demo</code> 地址: <a href="https://github.com/GpingFeng/jwt-client">Client</a> 和 <a href="https://github.com/GpingFeng/jwt-koa2-demo">Server</a></p>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="https://www.ruanyifeng.com/blog/2018/07/json_web_token-tutorial.html">JSON Web Token 入门教程</a></li>
+<li><a href="https://github.com/lin-xin/blog/issues/28">Node.js 应用：Koa2 使用 JWT 进行鉴权</a></li>
+</ul>
+
+    </body>
+    </html>
